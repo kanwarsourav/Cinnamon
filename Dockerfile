@@ -17,7 +17,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Copy project files
 COPY . .
 
-# ✅ CREATE SQLITE FILE (THIS FIXES YOUR ERROR)
+# Create sqlite file
 RUN mkdir -p database \
     && touch database/database.sqlite \
     && chmod -R 775 database \
@@ -26,10 +26,14 @@ RUN mkdir -p database \
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Install and build frontend
+# Build frontend
 RUN npm install
 RUN npm run build
 
 EXPOSE 10000
 
-CMD php artisan serve --host=0.0.0.0 --port=10000
+CMD php artisan config:clear && \
+    php artisan cache:clear && \
+    php artisan route:clear && \
+    php artisan view:clear && \
+    php artisan serve --host=0.0.0.0 --port=10000
