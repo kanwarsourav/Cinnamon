@@ -10,6 +10,9 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    build: {
+        outDir: 'public/build', // so Docker can find it
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],
