@@ -5,6 +5,9 @@ export default function ScrollSlides({ children }) {
   const isAnimating = useRef(false)
   const delayTimeout = useRef(null)
 
+  const touchStartY = useRef(0)
+  const touchEndY = useRef(0)
+
   const slidesCount = React.Children.count(children)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -18,25 +21,51 @@ export default function ScrollSlides({ children }) {
 
     setTimeout(() => {
       isAnimating.current = false
-    }, 800) // match animation duration
+    }, 800)
   }
 
+  // 🖱 Desktop scroll
   const handleWheel = (e) => {
     if (isAnimating.current) return
 
     const direction = e.deltaY > 0 ? 1 : -1
 
-    // clear previous delay if user scrolls again quickly
     clearTimeout(delayTimeout.current)
 
     delayTimeout.current = setTimeout(() => {
       scrollToSlide(activeIndex + direction)
-    }, 200) // 👈 delay before slide starts (adjust here)
+    }, 200)
+  }
+
+  // 📱 Touch start
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  // 📱 Touch move
+  const handleTouchMove = (e) => {
+    touchEndY.current = e.touches[0].clientY
+  }
+
+  // 📱 Touch end
+  const handleTouchEnd = () => {
+    if (isAnimating.current) return
+
+    const distance = touchStartY.current - touchEndY.current
+
+    // Minimum swipe distance
+    if (Math.abs(distance) < 50) return
+
+    const direction = distance > 0 ? 1 : -1
+    scrollToSlide(activeIndex + direction)
   }
 
   return (
     <div
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className="relative h-screen overflow-hidden"
     >
       {/* Slides Wrapper */}
