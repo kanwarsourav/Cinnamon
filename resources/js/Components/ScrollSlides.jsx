@@ -8,8 +8,11 @@ export default function ScrollSlides({ children }) {
   const touchStartY = useRef(0)
   const touchEndY = useRef(0)
 
-  const slidesCount = React.Children.count(children)
+  const slidesArray = React.Children.toArray(children)
+  const slidesCount = slidesArray.length
+
   const [activeIndex, setActiveIndex] = useState(0)
+  const [hoveredIndex, setHoveredIndex] = useState(null)
 
   const scrollToSlide = (index) => {
     if (index < 0 || index >= slidesCount) return
@@ -52,8 +55,6 @@ export default function ScrollSlides({ children }) {
     if (isAnimating.current) return
 
     const distance = touchStartY.current - touchEndY.current
-
-    // Minimum swipe distance
     if (Math.abs(distance) < 50) return
 
     const direction = distance > 0 ? 1 : -1
@@ -73,22 +74,41 @@ export default function ScrollSlides({ children }) {
         ref={containerRef}
         className="transition-transform duration-700 ease-in-out"
       >
-        {children}
+        {slidesArray}
       </div>
 
-      {/* Dots */}
+      {/* Dots Navigation */}
       <div className="fixed right-6 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50">
-        {[...Array(slidesCount)].map((_, i) => (
-          <button
-            key={i}
-            onClick={() => scrollToSlide(i)}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-              activeIndex === i
-                ? 'bg-black scale-125'
-                : 'bg-gray-400 hover:scale-110'
-            }`}
-          />
-        ))}
+        {slidesArray.map((child, i) => {
+
+          // 🔥 Get INNER component name (inside <Slide>)
+          const innerComponent = child.props?.children
+
+          const componentName =
+            innerComponent?.type?.displayName ||
+            innerComponent?.type?.name ||
+            `Slide ${i + 1}`
+
+          return (
+            <div key={i} className="relative flex items-center group">
+              
+              {/* Tooltip */}
+              <div className="absolute right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap bg-black text-white text-sm px-3 py-1 rounded-md shadow-lg">
+                {componentName}
+              </div>
+
+              {/* Dot */}
+              <button
+                onClick={() => scrollToSlide(i)}
+                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  activeIndex === i
+                    ? 'bg-black scale-125'
+                    : 'bg-gray-400 hover:scale-110'
+                }`}
+              />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
