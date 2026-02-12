@@ -14,18 +14,21 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy project
+# Copy project files
 COPY . .
 
-# Install dependencies
+# ✅ CREATE SQLITE FILE (THIS FIXES YOUR ERROR)
+RUN mkdir -p database \
+    && touch database/database.sqlite \
+    && chmod -R 775 database \
+    && chmod -R 775 storage bootstrap/cache
+
+# Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
 # Install and build frontend
 RUN npm install
 RUN npm run build
-
-# Permissions
-RUN chmod -R 775 storage bootstrap/cache
 
 EXPOSE 10000
 
