@@ -1,114 +1,105 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useEffect, useState } from "react"
+import { gsap } from "gsap"
+import { Observer } from "gsap/all"
+
+gsap.registerPlugin(Observer)
 
 export default function ScrollSlides({ children }) {
-  const containerRef = useRef(null)
-  const isAnimating = useRef(false)
-  const delayTimeout = useRef(null)
-
-  const touchStartY = useRef(0)
-  const touchEndY = useRef(0)
+  const slidesRef = useRef([])
+  const animating = useRef(false)
+  const currentIndex = useRef(0)
+  const observerRef = useRef(null)
+  const [activeIndex, setActiveIndex] = useState(0)
 
   const slidesArray = React.Children.toArray(children)
   const slidesCount = slidesArray.length
 
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [hoveredIndex, setHoveredIndex] = useState(null)
-
-  const scrollToSlide = (index) => {
+  // 🔥 MAIN SLIDE FUNCTION (USED EVERYWHERE)
+  const goToSlide = (index) => {
+    if (animating.current) return
     if (index < 0 || index >= slidesCount) return
+    if (index === currentIndex.current) return
 
-    isAnimating.current = true
-    setActiveIndex(index)
+    animating.current = true
 
-    containerRef.current.style.transform = `translateY(-${index * 100}vh)`
+    const direction = index > currentIndex.current ? 1 : -1
+    const currentSlide = slidesRef.current[currentIndex.current]
+    const nextSlide = slidesRef.current[index]
 
-    setTimeout(() => {
-      isAnimating.current = false
-    }, 800)
+    const tl = gsap.timeline({
+      defaults: { duration: 1.1, ease: "power4.inOut" },
+      onComplete: () => {
+        currentIndex.current = index
+        setActiveIndex(index)
+        animating.current = false
+      }
+    })
+
+    if (direction === 1) {
+      // Scroll DOWN
+      gsap.set(nextSlide, { y: "100%", zIndex: slidesCount + 1 })
+      tl.to(currentSlide, { scale: 0.96 }, 0)
+      tl.to(nextSlide, { y: 0 }, 0)
+    } else {
+      // Scroll UP
+      gsap.set(nextSlide, { y: "-100%", zIndex: slidesCount + 1 })
+      tl.to(currentSlide, { y: "100%" }, 0)
+      tl.to(nextSlide, { y: 0 }, 0)
+    }
   }
 
-  // 🖱 Desktop scroll
-  const handleWheel = (e) => {
-    if (isAnimating.current) return
+  useEffect(() => {
+    slidesRef.current = slidesRef.current.slice(0, slidesCount)
 
-    const direction = e.deltaY > 0 ? 1 : -1
+    // Initial state
+    slidesRef.current.forEach((slide, i) => {
+      gsap.set(slide, {
+        y: i === 0 ? 0 : "100%",
+        scale: 1,
+        zIndex: slidesCount - i
+      })
+    })
 
-    clearTimeout(delayTimeout.current)
+    observerRef.current = Observer.create({
+      target: window,
+      type: "wheel,touch",
+      onDown: () => goToSlide(currentIndex.current + 1),
+      onUp: () => goToSlide(currentIndex.current - 1),
+      tolerance: 10,
+      preventDefault: true
+    })
 
-    delayTimeout.current = setTimeout(() => {
-      scrollToSlide(activeIndex + direction)
-    }, 200)
-  }
+    return () => {
+      observerRef.current && observerRef.current.kill()
+    }
 
-  // 📱 Touch start
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY
-  }
-
-  // 📱 Touch move
-  const handleTouchMove = (e) => {
-    touchEndY.current = e.touches[0].clientY
-  }
-
-  // 📱 Touch end
-  const handleTouchEnd = () => {
-    if (isAnimating.current) return
-
-    const distance = touchStartY.current - touchEndY.current
-    if (Math.abs(distance) < 50) return
-
-    const direction = distance > 0 ? 1 : -1
-    scrollToSlide(activeIndex + direction)
-  }
+  }, [slidesCount])
 
   return (
-    <div
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="relative h-screen overflow-hidden"
-    >
-      {/* Slides Wrapper */}
-      <div
-        ref={containerRef}
-        className="transition-transform duration-700 ease-in-out"
-      >
-        {slidesArray}
-      </div>
+    <div className="h-screen overflow-hidden relative bg-white">
+      {slidesArray.map((slide, i) => (
+        <div
+          key={i}
+          ref={(el) => (slidesRef.current[i] = el)}
+          className="h-screen w-full absolute top-0 left-0"
+        >
+          {slide}
+        </div>
+      ))}
 
-      {/* Dots Navigation */}
+      {/* RIGHT SIDE DOTS */}
       <div className="fixed right-6 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50">
-        {slidesArray.map((child, i) => {
-
-          // 🔥 Get INNER component name (inside <Slide>)
-          const innerComponent = child.props?.children
-
-          const componentName =
-            innerComponent?.type?.displayName ||
-            innerComponent?.type?.name ||
-            `Slide ${i + 1}`
-
-          return (
-            <div key={i} className="relative flex items-center group">
-              
-              {/* Tooltip */}
-              <div className="absolute right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap bg-black text-white text-sm px-3 py-1 rounded-md shadow-lg">
-                {componentName}
-              </div>
-
-              {/* Dot */}
-              <button
-                onClick={() => scrollToSlide(i)}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  activeIndex === i
-                    ? 'bg-black scale-125'
-                    : 'bg-gray-400 hover:scale-110'
-                }`}
-              />
-            </div>
-          )
-        })}
+        {slidesArray.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goToSlide(i)}
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              activeIndex === i
+                ? "bg-black scale-125"
+                : "bg-gray-400 hover:scale-110"
+            }`}
+          />
+        ))}
       </div>
     </div>
   )
